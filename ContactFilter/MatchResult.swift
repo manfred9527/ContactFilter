@@ -6,8 +6,6 @@
 //  Copyright © 2020 齐风修. All rights reserved.
 //
 
-import UIKit
-
 /// 开口码匹配结果
 public struct MContactMatchResult {
     /// 多彩名字

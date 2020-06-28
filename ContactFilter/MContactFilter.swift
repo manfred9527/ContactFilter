@@ -6,8 +6,6 @@
 //  Copyright © 2020 齐风修. All rights reserved.
 //
 
-import UIKit
-
 private let contactFilter = MContactFilter()
 
 public class MContactFilter {

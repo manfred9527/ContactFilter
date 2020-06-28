@@ -6,8 +6,6 @@
 //  Copyright © 2020 齐风修. All rights reserved.
 //
 
-import UIKit
-
 /// 通话记录
 public protocol MRecord {
     
