@@ -80,7 +80,10 @@ public class MContactFilter {
     public func match(contacts: [MContact], records: [MRecord], numberString: String, matchKey: String) -> ([MContact], [MRecord]) {
         
         /// 缓存没有匹配上名字，需要匹配号码的联系人
+        var fullNameContacts = [MContact]()
+        /// 缓存没有匹配上名字，需要匹配号码的联系人
         var phoneContacts = [MContact]()
+        
         /// 开口码代表的字母数组
         var targetChars = [[Character]]()
         
@@ -90,11 +93,36 @@ public class MContactFilter {
             }
         }
         
+        var rShortName = [MContact]()
         var rName = [MContact]()
         var rNumber = [MContact]()
 
-        // 首先匹配名字
+        // 提前匹配简称
         for var one in contacts {
+
+            /// 获取缓存的匹配结果
+            var matchResult = one.matchResult[matchKey] ?? MContactMatchResult(nameAttribute: [], phoneAttribute: [])
+
+            // 名字拼音
+            let namePinYinDic = one.pinyinDic
+            let (result, strInfo) = self.matchShortName(namePinyinDic: namePinYinDic, targetChars: targetChars)
+            if result == true, strInfo.count > 0 {
+                matchResult.nameAttribute = strInfo
+                matchResult.phoneAttribute = []
+                one.matchResult[matchKey] = matchResult
+                rShortName.append(one)
+            } else {
+                fullNameContacts.append(one)
+            }
+        }
+        
+        rShortName.sort { (l, r) -> Bool in
+            return l.lastContactTime > r.lastContactTime
+        }
+
+        
+        // 首先匹配名字
+        for var one in fullNameContacts {
 
             /// 获取缓存的匹配结果
             var matchResult = one.matchResult[matchKey] ?? MContactMatchResult(nameAttribute: [], phoneAttribute: [])
@@ -116,8 +144,6 @@ public class MContactFilter {
         rName.sort { (l, r) -> Bool in
             return l.lastContactTime > r.lastContactTime
         }
-        
-
         
         // 然后匹配手机号
         for var one in phoneContacts {
@@ -158,7 +184,7 @@ public class MContactFilter {
             cleanRecords.append(one)
         }
         
-        return (rName + rNumber, cleanRecords)
+        return (rShortName + rName + rNumber, cleanRecords)
         
     }
     
@@ -224,8 +250,6 @@ public class MContactFilter {
 
 extension MContactFilter {
     
-    // MARK: 匹配姓名拼音
-    
     /// 从一个人的人名拼音中找到目标字符串（字符数组）
     ///
     /// - Parameters:
@@ -286,6 +310,45 @@ extension MContactFilter {
         } else {
             // 没匹配上，返回
             return targetChars
+        }
+    }
+    
+    /// 从一个人的人名拼音中找到目标字符数组
+    ///
+    /// - Parameters:
+    ///   - namePinyinDic: 一个人名的拼音字典（张三：zhangsan）
+    ///   - targetChars: 目标开口码（数字代表的字母数组）
+    /// - Returns: (是否成功，多彩文字信息(文字，是否高亮))
+    func matchShortName(namePinyinDic: [(String, String)], targetChars: [[Character]]) -> (Bool, [(String, Bool)])  {
+        // 返回用的数据
+        var r = [(String, Bool)]()
+        // 剩余的待匹配数字代表的字母数组 如 23 [[a,b,c],[d,e,f]]
+        var leftTargetChars = targetChars
+        // 挨个名字拼音遍历
+        for (name, namePinyin) in namePinyinDic {
+            if leftTargetChars.count == 0 {
+                // 匹配完全了，不需要匹配了
+                r.append((name, false))
+                continue
+            }
+            guard let first = namePinyin.first else { continue }
+            // 挨个数字（代表字母数字）匹配
+            let tempLeftTargetChars = matchChars(namePinyin: String(first), targetChars: leftTargetChars)
+            if tempLeftTargetChars.count < leftTargetChars.count {
+                // 匹配成功过，记录该汉字的颜色
+                r.append((name, true))
+                // 改变待匹配数组
+                leftTargetChars = tempLeftTargetChars
+            } else {
+                r.append((name, false))
+            }
+        }
+        if leftTargetChars.count == 0 {
+            // 完全匹配成功了，符合筛选结果
+            return (true, r)
+        } else {
+            // 完全匹配失败，不符合筛选结果
+            return (false, [])
         }
     }
     
